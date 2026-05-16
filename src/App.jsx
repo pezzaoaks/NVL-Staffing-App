@@ -31,6 +31,7 @@ export default function App() {
 
   const [audit, setAudit] = useState([]);
   const [view, setView] = useState("dashboard");
+  const [mobileView, setMobileView] = useState(false);
   const [savedWeek, setSavedWeek] = useState(false);
 
   const log = (text) => {
@@ -195,6 +196,32 @@ export default function App() {
     return "SAFE";
   };
 
+  const mobileHeaderStyle = {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  };
+
+  const absentSectionStyle = {
+    display: "flex",
+    gap: 20,
+    marginTop: 20,
+    justifyContent: "center",
+    alignItems: "flex-start",
+    flexDirection: mobileView ? "column" : "row",
+  };
+
+  const sessionRowStyle = {
+    display: "flex",
+    gap: 15,
+    flexWrap: "wrap",
+    flexDirection: mobileView ? "column" : "row",
+  };
+
+  const classCardWidth = (status) => (mobileView ? "100%" : status === "HIGH RISK" ? 260 : 220);
+
   if (view === "slt") {
     return (
       <div style={{ padding: 40 }}>
@@ -221,11 +248,14 @@ export default function App() {
         }}
       >
         <h2>NVL SEND Staffing</h2>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={mobileHeaderStyle}>
           <input className="no-print" type="file" accept=".csv,.xlsx" onChange={handleUpload} />
           <button className="no-print" onClick={() => setView("slt")}>SLT</button>
           <button className="no-print" onClick={saveWeek}>Save week</button>
           <button className="no-print" onClick={exportPDF}>Export PDF</button>
+          <button className="no-print" onClick={() => setMobileView((prev) => !prev)}>
+            {mobileView ? "Desktop View" : "Mobile View"}
+          </button>
           {savedWeek && <span style={{ marginLeft: 8 }}>Saved!</span>}
         </div>
       </div>
@@ -233,7 +263,7 @@ export default function App() {
       <div style={{ padding: 20 }}>
         <div>🟢 Safe | 🟠 Understaffed | 🔴 High Risk</div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 10, flexDirection: mobileView ? "column" : "row" }}>
           {days.map((d) => {
             const s = dayStatus(d);
             return (
@@ -260,7 +290,7 @@ export default function App() {
           </div>
         ))}
 
-        <div style={{ display: "flex", gap: 20, marginTop: 20, justifyContent: "center", alignItems: "flex-start" }}>
+        <div style={absentSectionStyle}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
             <h4>Learners Absent</h4>
             {classesData.flatMap((c) => c.learners || []).map((l) => (
@@ -325,7 +355,7 @@ export default function App() {
         {sessions.map((session) => (
           <div key={session} style={{ marginTop: 20 }}>
             <h3>{session}</h3>
-            <div style={{ display: "flex", gap: 15, flexWrap: "wrap" }}>
+            <div style={sessionRowStyle}>
               {classesData
                 .filter((c) => c.day === day && c.session === session)
                 .map((cls) => {
@@ -347,7 +377,7 @@ export default function App() {
                     style={{
                       padding: 15,
                       borderRadius: 8,
-                      width: cls.status === "HIGH RISK" ? 260 : 220,
+                      width: classCardWidth(cls.status),
                       ...getHeat(cls.status),
                     }}
                   >
