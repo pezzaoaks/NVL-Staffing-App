@@ -18,7 +18,7 @@ const riskColors = {
 
 export default function App() {
   const [assignments, setAssignments] = useState({});
-  const [selectedStaff, setSelectedStaff] = useState("Sarah");
+  const [draggedStaff, setDraggedStaff] = useState(null);
 
   const getCoverage = (slot, learner) => {
     const key = `${slot}-${learner.name}`;
@@ -31,14 +31,6 @@ export default function App() {
     };
   };
 
-  // ✅ GROUP BY CLASS
-  const grouped = learners.reduce((acc, l) => {
-    if (!acc[l.class]) acc[l.class] = [];
-    acc[l.class].push(l);
-    return acc;
-  }, {});
-
-  // ✅ NORMAL ASSIGN
   const assign = (slot, learner, staff) => {
     const key = `${slot}-${learner}`;
     const current = assignments[key] || [];
@@ -49,7 +41,7 @@ export default function App() {
     });
   };
 
-  // ✅ SMART ASSIGN
+  // ✅ SMART ASSIGN (priority)
   const smartAssign = (slot) => {
     let candidates = [];
 
@@ -72,30 +64,65 @@ export default function App() {
     if (candidates.length === 0) return;
 
     const target = candidates[0];
-
-    assign(slot, target.name, selectedStaff);
+    assign(slot, target.name, staffList[0]);
   };
+
+  // ✅ GROUPING
+  const grouped = learners.reduce((acc, l) => {
+    if (!acc[l.class]) acc[l.class] = [];
+    acc[l.class].push(l);
+    return acc;
+  }, {});
+
+  // ✅ DASHBOARD CALCULATION
+  let totalRequired = 0;
+  let totalAssigned = 0;
+  let highRiskGaps = 0;
+
+  learners.forEach((l) => {
+    const c = getCoverage(slots[0], l); // using first slot for summary
+    totalRequired += c.required;
+    totalAssigned += c.assigned;
+    if (l.risk === "high" && c.gap > 0) highRiskGaps++;
+  });
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>NVL SEND Staffing 🚀 Version 4</h1>
+      <h1>NVL SEND Staffing 🚀</h1>
 
-      {/* ✅ STAFF PANEL */}
+      {/* ✅ DASHBOARD */}
+      <div
+        style={{
+          background: "#e5e7eb",
+          padding: 10,
+          marginBottom: 20,
+        }}
+      >
+        <strong>Daily Summary</strong>
+        <div>Required: {totalRequired}</div>
+        <div>Assigned: {totalAssigned}</div>
+        <div style={{ color: "red" }}>
+          High Risk Gaps: {highRiskGaps}
+        </div>
+      </div>
+
+      {/* ✅ STAFF (DRAG ENABLED) */}
       <div style={{ marginBottom: 20 }}>
-        <strong>Select Staff: </strong>
-        {staffList.map((staff) => (
-          <button
-            key={staff}
-            onClick={() => setSelectedStaff(staff)}
+        <strong>Staff:</strong>{" "}
+        {staffList.map((s) => (
+          <span
+            key={s}
+            draggable
+            onDragStart={() => setDraggedStaff(s)}
             style={{
               marginRight: 10,
-              background: selectedStaff === staff ? "black" : "#ddd",
-              color: selectedStaff === staff ? "white" : "black",
-              padding: "5px 10px",
+              padding: "5px",
+              background: "#ddd",
+              cursor: "grab",
             }}
           >
-            {staff}
-          </button>
+            {s}
+          </span>
         ))}
       </div>
 
@@ -103,86 +130,54 @@ export default function App() {
         <div key={slot} style={{ marginBottom: 30 }}>
           <h2>{slot}</h2>
 
-          {/* ✅ SMART BUTTON */}
-          <button
-            onClick={() => smartAssign(slot)}
-            style={{
-              marginBottom: 10,
-              background: "#2563eb",
-              color: "white",
-              padding: "6px 10px",
-            }}
-          >
+          <button onClick={() => smartAssign(slot)}>
             ⚡ Smart Assign
           </button>
 
-          {Object.entries(grouped).map(([className, classLearners]) => {
-            let totalRequired = 0;
-            let totalAssigned = 0;
-            let highRiskGap = false;
+          {Object.entries(grouped).map(([className, classLearners]) => (
+            <div key={className}>
+              <h3>{className}</h3>
 
-            classLearners.forEach((l) => {
-              const c = getCoverage(slot, l);
-              totalRequired += c.required;
-              totalAssigned += c.assigned;
-              if (l.risk === "high" && c.gap > 0) {
-                highRiskGap = true;
-              }
-            });
+              {classLearners.map((l) => {
+                const coverage = getCoverage(slot, l);
 
-            return (
-              <div key={className} style={{ marginBottom: 15 }}>
-                <h3>
-                  {className} — Required: {totalRequired} | Assigned: {totalAssigned}
-                </h3>
+                return (
+                  <div
+                    key={l.name}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() =>
+                      assign(slot, l.name, draggedStaff)
+                    }
+                    style={{
+                      background: riskColors[l.risk],
+                      padding: 10,
+                      marginTop: 5,
+                    }}
+                  >
+                    <strong>{l.name}</strong> ({l.risk})
 
-                {highRiskGap && (
-                  <div style={{ color: "red", fontWeight: "bold" }}>
-                    🚨 HIGH RISK GAP
-                  </div>
-                )}
-
-                {classLearners.map((l) => {
-                  const coverage = getCoverage(slot, l);
-
-                  return (
-                    <div
-                      key={l.name}
-                      style={{
-                        background: riskColors[l.risk],
-                        padding: 10,
-                        marginTop: 5,
-                      }}
-                    >
-                      <strong>{l.name}</strong> ({l.risk})
-
-                      <div>
-                        {coverage.assigned}/{coverage.required}
-                      </div>
-
-                      {coverage.gap > 0 && (
-                        <div style={{ color: "red" }}>
-                          ⚠️ Short by {coverage.gap}
-                        </div>
-                      )}
-
-                      {coverage.gap <= 0 && (
-                        <div>✅ Covered</div>
-                      )}
-
-                      <button
-                        onClick={() =>
-                          assign(slot, l.name, selectedStaff)
-                        }
-                      >
-                        Assign {selectedStaff}
-                      </button>
+                    <div>
+                      {coverage.assigned}/{coverage.required}
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+
+                    {coverage.gap > 0 && (
+                      <div style={{ color: "red" }}>
+                        ⚠️ Short by {coverage.gap}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() =>
+                        assign(slot, l.name, staffList[0])
+                      }
+                    >
+                      Assign
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       ))}
     </div>
