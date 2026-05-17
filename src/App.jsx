@@ -169,7 +169,7 @@ export default function App() {
             lecturer: row.Lecturer,
             room: row.Room,
             supportNeeded: Number(row.Support) || 0,
-            learners: row.Students ? row.Students.split("|") : [],
+            learners: (row.Learners || row.Students || "").split("|").filter(Boolean),
             assignedStaff: parseAssignedStaff(
               row.Assigned || row.Staff || row["Assigned Staff"] || row["Staff Assigned"]
             ),
@@ -201,7 +201,7 @@ export default function App() {
                 lecturer: rowData.Lecturer,
                 room: rowData.Room,
                 supportNeeded: Number(rowData.Support) || 0,
-                learners: (rowData.Students || "").split("|").filter(Boolean),
+                learners: (rowData.Learners || rowData.Students || "").split("|").filter(Boolean),
                 assignedStaff: parseAssignedStaff(
                   rowData.Assigned || rowData.Staff || rowData["Assigned Staff"] || rowData["Staff Assigned"]
                 ),
