@@ -391,16 +391,22 @@ export default function App() {
   }
 
   return (
-    <div style={{ background: "#f9fafb", minHeight: "100vh" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: 15,
-          background: "#111827",
-          color: "white",
-        }}
-      >
+    
+  <div
+    style={{
+      background: "#f9fafb",
+      minHeight: "100vh",
+      display: "flex",
+      justifyContent: "center"
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "2400px",
+        padding: "0 20px"
+      }}
+    >
         <h2>NVL SEND Staffing</h2>
         <div style={mobileHeaderStyle}>
           <input className="no-print" type="file" accept=".csv,.xlsx" onChange={handleUpload} />
