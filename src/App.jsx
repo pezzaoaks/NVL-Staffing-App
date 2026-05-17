@@ -489,7 +489,16 @@ export default function App() {
                       {cls.assigned}/{cls.adjusted}
                     </div>
                     <div style={{ marginTop: 8, fontSize: 12 }}>
-                      Assigned: {cls.assignedStaff?.length ? cls.assignedStaff.join(", ") : "None"}
+                      Learners:
+                      <div style={{ marginTop: 4, padding: 8, background: "rgba(255,255,255,0.15)", borderRadius: 6 }}>
+                        {cls.learners?.length ? cls.learners.join(", ") : "None"}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 12 }}>
+                      Staff:
+                      <div style={{ marginTop: 4, padding: 8, background: "rgba(255,255,255,0.15)", borderRadius: 6 }}>
+                        {cls.assignedStaff?.length ? cls.assignedStaff.join(", ") : "None"}
+                      </div>
                     </div>
                     <button onClick={() => assign(session, cls.name)}>
                       Assign
