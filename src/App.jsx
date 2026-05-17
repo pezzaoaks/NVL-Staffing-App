@@ -25,7 +25,7 @@ export default function App() {
   const [assignments, setAssignments] = useState({});
   const [dragged, setDragged] = useState(null);
 
-  const [staff] = useState(["Sarah", "Amir", "Leah"]);
+  const [staff, setStaff] = useState(["Sarah", "Amir", "Leah"]);
   const [absentLearners, setAbsentLearners] = useState([]);
   const [absentStaff, setAbsentStaff] = useState([]);
 
@@ -46,7 +46,7 @@ export default function App() {
     try {
       const data = JSON.parse(saved);
       setClassesData(data.classesData || []);
-      setAssignments(data.assignments || {});
+      setAssignments(normalizeAssignments(data.assignments || {}));
       setAbsentLearners(data.absentLearners || []);
       setAbsentStaff(data.absentStaff || []);
       setDay(data.day || "Monday");
@@ -95,6 +95,24 @@ export default function App() {
     window.print();
   };
 
+  const parseAssignedStaff = (value) => {
+    if (!value && value !== 0) return [];
+    const text = Array.isArray(value) ? value.join("|") : String(value);
+    return text
+      .split(/\s*[|,]\s*/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  };
+
+  const normalizeAssignments = (raw) => {
+    return Object.entries(raw || {}).reduce((acc, [key, value]) => {
+      if (Array.isArray(value)) acc[key] = value;
+      else if (typeof value === "number") acc[key] = Array.from({ length: value }, () => "Manual");
+      else acc[key] = parseAssignedStaff(value);
+      return acc;
+    }, {});
+  };
+
   const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -121,6 +139,9 @@ export default function App() {
             room: row.Room,
             supportNeeded: Number(row.Support) || 0,
             learners: row.Students ? row.Students.split("|") : [],
+            assignedStaff: parseAssignedStaff(
+              row.Assigned || row.Staff || row["Assigned Staff"] || row["Staff Assigned"]
+            ),
           }));
         } else {
           parsed = event.target.result
@@ -130,21 +151,39 @@ export default function App() {
               const cols = row.split(",");
               if (cols.length < 7) return null;
 
+              const [dayCol, sessionCol, nameCol, subjectCol, lecturerCol, roomCol, supportCol, learnersCol = "", assignedCol = ""] = cols;
+
               return {
-                day: cols[0]?.trim(),
-                session: cols[1]?.trim(),
-                name: cols[2]?.trim(),
-                subject: cols[3]?.trim(),
-                lecturer: cols[4]?.trim(),
-                room: cols[5]?.trim(),
-                supportNeeded: Number(cols[6]) || 0,
-                learners: (cols[7] || "").split("|").filter(Boolean),
+                day: dayCol?.trim(),
+                session: sessionCol?.trim(),
+                name: nameCol?.trim(),
+                subject: subjectCol?.trim(),
+                lecturer: lecturerCol?.trim(),
+                room: roomCol?.trim(),
+                supportNeeded: Number(supportCol) || 0,
+                learners: (learnersCol || "").split("|").filter(Boolean),
+                assignedStaff: parseAssignedStaff(assignedCol),
               };
             })
             .filter(Boolean);
         }
 
         setClassesData(parsed);
+        setAssignments(
+          parsed.reduce((acc, cls) => {
+            const key = `${cls.day}-${cls.session}-${cls.name}`;
+            if (cls.assignedStaff?.length) acc[key] = cls.assignedStaff;
+            return acc;
+          }, {})
+        );
+
+        setStaff((prevStaff) => [
+          ...new Set([
+            ...prevStaff,
+            ...parsed.flatMap((cls) => cls.assignedStaff || []),
+          ]),
+        ]);
+
         log("📁 Timetable uploaded");
       } catch (err) {
         console.error(err);
@@ -155,13 +194,39 @@ export default function App() {
     isExcel ? reader.readAsArrayBuffer(file) : reader.readAsText(file);
   };
 
-  const assign = (sessionName, className, staffName = "Manual") => {
+  const assign = (sessionName, className, staffName) => {
+    let selectedStaff = staffName;
+    if (!selectedStaff) {
+      const available = staff.filter((s) => !absentStaff.includes(s));
+      const input = prompt(
+        `Assign staff to ${className}. Available: ${available.join(", ")}`
+      );
+      if (!input) return;
+      selectedStaff = input.trim();
+    }
+
+    if (!staff.includes(selectedStaff)) {
+      alert(`Staff member not found: ${selectedStaff}`);
+      return;
+    }
+    if (absentStaff.includes(selectedStaff)) {
+      alert(`${selectedStaff} is marked absent`);
+      return;
+    }
+
     const key = `${day}-${sessionName}-${className}`;
-    setAssignments((prev) => ({
-      ...prev,
-      [key]: (prev[key] || 0) + 1,
-    }));
-    log(`${staffName} → ${className}`);
+    setAssignments((prev) => {
+      const current = Array.isArray(prev[key]) ? prev[key] : [];
+      if (current.includes(selectedStaff)) {
+        alert(`${selectedStaff} is already assigned to ${className}`);
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: [...current, selectedStaff],
+      };
+    });
+    log(`${selectedStaff} → ${className}`);
   };
 
   const drop = (sessionName, className) => {
@@ -173,11 +238,12 @@ export default function App() {
     return classesData
       .map((cls) => {
         const key = `${cls.day}-${cls.session}-${cls.name}`;
-        const assigned = assignments[key] || 0;
+        const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+        const assigned = assignedNames.length;
         const adjusted =
           cls.supportNeeded -
           (cls.learners || []).filter((l) => absentLearners.includes(l)).length;
-        return { ...cls, assigned, adjusted, status: getStatus(assigned, adjusted) };
+        return { ...cls, assigned, assignedStaff: assignedNames, adjusted, status: getStatus(assigned, adjusted) };
       })
       .sort((a, b) => score(b.status) - score(a.status))
       .slice(0, 3);
@@ -188,7 +254,8 @@ export default function App() {
       .filter((c) => c.day === d)
       .map((c) => {
         const key = `${d}-${c.session}-${c.name}`;
-        return getStatus(assignments[key] || 0, c.supportNeeded);
+        const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+        return getStatus(assignedNames.length, c.supportNeeded);
       });
 
     if (statuses.includes("HIGH RISK")) return "HIGH RISK";
@@ -360,12 +427,13 @@ export default function App() {
                 .filter((c) => c.day === day && c.session === session)
                 .map((cls) => {
                   const key = `${day}-${session}-${cls.name}`;
-                  const assigned = assignments[key] || 0;
+                  const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+                  const assigned = assignedNames.length;
                   const adjusted =
                     cls.supportNeeded -
                     (cls.learners || []).filter((l) => absentLearners.includes(l)).length;
                   const status = getStatus(assigned, adjusted);
-                  return { ...cls, assigned, adjusted, status };
+                  return { ...cls, assigned, assignedStaff: assignedNames, adjusted, status };
                 })
                 .sort((a, b) => score(b.status) - score(a.status))
                 .map((cls) => (
@@ -386,6 +454,9 @@ export default function App() {
                     <div>
                       {cls.assigned}/{cls.adjusted}
                     </div>
+                    <div style={{ marginTop: 8, fontSize: 12 }}>
+                      Assigned: {cls.assignedStaff?.length ? cls.assignedStaff.join(", ") : "None"}
+                    </div>
                     <button onClick={() => assign(session, cls.name)}>
                       Assign
                     </button>
@@ -397,7 +468,16 @@ export default function App() {
 
         <div style={{ marginTop: 20 }}>
           <h3>Unallocated Staff</h3>
-          <div>No unallocated staff currently.</div>
+          <div>
+            {staff
+              .filter(
+                (s) =>
+                  !absentStaff.includes(s) &&
+                  !Object.values(assignments).flat().includes(s)
+              )
+              .join(", ") || "No unallocated staff currently."
+            }
+          </div>
         </div>
 
         <div style={{ marginTop: 20 }}>
