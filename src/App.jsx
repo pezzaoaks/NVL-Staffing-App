@@ -19,6 +19,15 @@ const getHeat = (status) => {
 const score = (status) =>
   status === "HIGH RISK" ? 3 : status === "UNDERSTAFFED" ? 2 : 1;
 
+const parseAssignedStaff = (value) => {
+  if (!value && value !== 0) return [];
+  const text = Array.isArray(value) ? value.join("|") : String(value);
+  return text
+    .split(/\s*[|,]\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 export default function App() {
   const [day, setDay] = useState("Monday");
   const [classesData, setClassesData] = useState([]);
@@ -26,8 +35,8 @@ export default function App() {
   const [dragged, setDragged] = useState(null);
 
   const [staff, setStaff] = useState(["Sarah", "Amir", "Leah"]);
-  const [absentLearners, setAbsentLearners] = useState([]);
-  const [absentStaff, setAbsentStaff] = useState([]);
+  const [absentLearners, setAbsentLearners] = useState({});
+  const [absentStaff, setAbsentStaff] = useState({});
 
   const [audit, setAudit] = useState([]);
   const [view, setView] = useState("dashboard");
@@ -39,6 +48,29 @@ export default function App() {
     setAudit((prev) => [`[${time}] ${text}`, ...prev]);
   };
 
+  const getAbsentLearnersForDay = (d) => absentLearners[d] || [];
+  const getAbsentStaffForDay = (d) => absentStaff[d] || [];
+
+  const toggleAbsentLearner = (learner) => {
+    setAbsentLearners((prev) => {
+      const current = prev[day] || [];
+      const next = current.includes(learner)
+        ? current.filter((x) => x !== learner)
+        : [...current, learner];
+      return { ...prev, [day]: next };
+    });
+  };
+
+  const toggleAbsentStaff = (staffName) => {
+    setAbsentStaff((prev) => {
+      const current = prev[day] || [];
+      const next = current.includes(staffName)
+        ? current.filter((x) => x !== staffName)
+        : [...current, staffName];
+      return { ...prev, [day]: next };
+    });
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("nvl-week");
     if (!saved) return;
@@ -47,8 +79,16 @@ export default function App() {
       const data = JSON.parse(saved);
       setClassesData(data.classesData || []);
       setAssignments(normalizeAssignments(data.assignments || {}));
-      setAbsentLearners(data.absentLearners || []);
-      setAbsentStaff(data.absentStaff || []);
+      setAbsentLearners(
+        Array.isArray(data.absentLearners)
+          ? { [data.day || "Monday"]: data.absentLearners }
+          : data.absentLearners || {}
+      );
+      setAbsentStaff(
+        Array.isArray(data.absentStaff)
+          ? { [data.day || "Monday"]: data.absentStaff }
+          : data.absentStaff || {}
+      );
       setDay(data.day || "Monday");
       setView(data.view || "dashboard");
       setAudit(data.audit || []);
@@ -93,15 +133,6 @@ export default function App() {
   const exportPDF = () => {
     log("Export PDF requested");
     window.print();
-  };
-
-  const parseAssignedStaff = (value) => {
-    if (!value && value !== 0) return [];
-    const text = Array.isArray(value) ? value.join("|") : String(value);
-    return text
-      .split(/\s*[|,]\s*/)
-      .map((item) => item.trim())
-      .filter(Boolean);
   };
 
   const normalizeAssignments = (raw) => {
@@ -197,7 +228,7 @@ export default function App() {
   const assign = (sessionName, className, staffName) => {
     let selectedStaff = staffName;
     if (!selectedStaff) {
-      const available = staff.filter((s) => !absentStaff.includes(s));
+      const available = staff.filter((s) => !getAbsentStaffForDay(day).includes(s));
       const input = prompt(
         `Assign staff to ${className}. Available: ${available.join(", ")}`
       );
@@ -209,7 +240,7 @@ export default function App() {
       alert(`Staff member not found: ${selectedStaff}`);
       return;
     }
-    if (absentStaff.includes(selectedStaff)) {
+    if (getAbsentStaffForDay(day).includes(selectedStaff)) {
       alert(`${selectedStaff} is marked absent`);
       return;
     }
@@ -242,7 +273,7 @@ export default function App() {
         const assigned = assignedNames.length;
         const adjusted =
           cls.supportNeeded -
-          (cls.learners || []).filter((l) => absentLearners.includes(l)).length;
+          (cls.learners || []).filter((l) => getAbsentLearnersForDay(cls.day).includes(l)).length;
         return { ...cls, assigned, assignedStaff: assignedNames, adjusted, status: getStatus(assigned, adjusted) };
       })
       .sort((a, b) => score(b.status) - score(a.status))
@@ -360,16 +391,12 @@ export default function App() {
         <div style={absentSectionStyle}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
             <h4>Learners Absent</h4>
-            {classesData.flatMap((c) => c.learners || []).map((l) => (
+            {Array.from(new Set(classesData.filter((c) => c.day === day).flatMap((c) => c.learners || []))).map((l) => (
               <label key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
-                  checked={absentLearners.includes(l)}
-                  onChange={() =>
-                    setAbsentLearners((prev) =>
-                      prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]
-                    )
-                  }
+                  checked={getAbsentLearnersForDay(day).includes(l)}
+                  onChange={() => toggleAbsentLearner(l)}
                 />
                 {l}
               </label>
@@ -382,12 +409,8 @@ export default function App() {
               <label key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
-                  checked={absentStaff.includes(s)}
-                  onChange={() =>
-                    setAbsentStaff((prev) =>
-                      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-                    )
-                  }
+                  checked={getAbsentStaffForDay(day).includes(s)}
+                  onChange={() => toggleAbsentStaff(s)}
                 />
                 {s}
               </label>
@@ -398,7 +421,7 @@ export default function App() {
         <h3 style={{ marginTop: 20 }}>Staff</h3>
         <div style={{ display: "flex", gap: 10 }}>
           {staff
-            .filter((s) => !absentStaff.includes(s))
+            .filter((s) => !getAbsentStaffForDay(day).includes(s))
             .map((s) => (
               <div
                 key={s}
@@ -431,7 +454,7 @@ export default function App() {
                   const assigned = assignedNames.length;
                   const adjusted =
                     cls.supportNeeded -
-                    (cls.learners || []).filter((l) => absentLearners.includes(l)).length;
+                    (cls.learners || []).filter((l) => getAbsentLearnersForDay(cls.day).includes(l)).length;
                   const status = getStatus(assigned, adjusted);
                   return { ...cls, assigned, assignedStaff: assignedNames, adjusted, status };
                 })
@@ -472,7 +495,7 @@ export default function App() {
             {staff
               .filter(
                 (s) =>
-                  !absentStaff.includes(s) &&
+                  !getAbsentStaffForDay(day).includes(s) &&
                   !Object.values(assignments).flat().includes(s)
               )
               .join(", ") || "No unallocated staff currently."
