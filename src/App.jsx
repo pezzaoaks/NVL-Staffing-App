@@ -164,7 +164,7 @@ export default function App() {
           parsed = json.map((row) => ({
             day: row.Day,
             session: row.Session,
-            name: row.Class,
+            name: row.Name || row.Class || row.Subject,
             subject: row.Subject,
             lecturer: row.Lecturer,
             room: row.Room,
@@ -175,25 +175,36 @@ export default function App() {
             ),
           }));
         } else {
-          parsed = event.target.result
+          const lines = event.target.result
             .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+          const headers = (lines[0] || "").split(",").map((h) => h.trim());
+
+          parsed = lines
             .slice(1)
             .map((row) => {
               const cols = row.split(",");
               if (cols.length < 7) return null;
 
-              const [dayCol, sessionCol, nameCol, subjectCol, lecturerCol, roomCol, supportCol, learnersCol = "", assignedCol = ""] = cols;
+              const rowData = headers.reduce((acc, header, index) => {
+                acc[header] = cols[index]?.trim() || "";
+                return acc;
+              }, {});
 
               return {
-                day: dayCol?.trim(),
-                session: sessionCol?.trim(),
-                name: nameCol?.trim(),
-                subject: subjectCol?.trim(),
-                lecturer: lecturerCol?.trim(),
-                room: roomCol?.trim(),
-                supportNeeded: Number(supportCol) || 0,
-                learners: (learnersCol || "").split("|").filter(Boolean),
-                assignedStaff: parseAssignedStaff(assignedCol),
+                day: rowData.Day,
+                session: rowData.Session,
+                name: rowData.Name || rowData.Class || rowData.Subject,
+                subject: rowData.Subject,
+                lecturer: rowData.Lecturer,
+                room: rowData.Room,
+                supportNeeded: Number(rowData.Support) || 0,
+                learners: (rowData.Students || "").split("|").filter(Boolean),
+                assignedStaff: parseAssignedStaff(
+                  rowData.Assigned || rowData.Staff || rowData["Assigned Staff"] || rowData["Staff Assigned"]
+                ),
               };
             })
             .filter(Boolean);
