@@ -61,6 +61,12 @@ export default function App() {
   const getAbsentLearnersForDay = (d) => absentLearners[d] || [];
   const getAbsentStaffForDay = (d) => absentStaff[d] || [];
 
+  const getActiveAssignedStaff = (key, targetDay) => {
+    const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+    const absent = getAbsentStaffForDay(targetDay ?? day);
+    return assignedNames.filter((name) => !absent.includes(name));
+  };
+
   const toggleAbsentLearner = (learner) => {
     setAbsentLearners((prev) => {
       const current = prev[day] || [];
@@ -294,7 +300,7 @@ export default function App() {
     return classesData
       .map((cls) => {
         const key = `${cls.day}-${cls.session}-${cls.name}`;
-        const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+        const assignedNames = getActiveAssignedStaff(key, cls.day);
         const assigned = assignedNames.length;
         const adjusted =
           cls.supportNeeded -
@@ -311,7 +317,8 @@ export default function App() {
       .map((c) => {
         const key = `${d}-${c.session}-${c.name}`;
         const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
-        return getStatus(assignedNames.length, c.supportNeeded);
+        const activeAssigned = assignedNames.filter((name) => !getAbsentStaffForDay(d).includes(name));
+        return getStatus(activeAssigned.length, c.supportNeeded);
       });
 
     if (statuses.includes("HIGH RISK")) return "HIGH RISK";
@@ -475,7 +482,7 @@ export default function App() {
                 .filter((c) => c.day === day && c.session === session)
                 .map((cls) => {
                   const key = `${day}-${session}-${cls.name}`;
-                  const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+                  const assignedNames = getActiveAssignedStaff(key, cls.day);
                   const assigned = assignedNames.length;
                   const adjusted =
                     cls.supportNeeded -
