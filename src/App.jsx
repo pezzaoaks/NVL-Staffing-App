@@ -391,23 +391,16 @@ export default function App() {
   }
 
   return (
-    
-  <div
-    style={{
-      background: "#f9fafb",
-      minHeight: "100vh",
-      display: "flex",
-      justifyContent: "center"
-    }}
-  >
-    <div
-      style={{
-        width: "100%",
-        maxWidth: "2400px",
-        padding: "0 20px"
-      }}
-      
-    >
+    <div style={{ background: "#f9fafb", minHeight: "100vh", minWidth: "1700px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          padding: 15,
+          background: "#111827",
+          color: "white",
+        }}
+      >
         <h2>NVL SEND Staffing</h2>
         <div style={mobileHeaderStyle}>
           <input className="no-print" type="file" accept=".csv,.xlsx" onChange={handleUpload} />
@@ -440,13 +433,9 @@ export default function App() {
               >
                 {d}
               </div>
-              
             );
           })}
         </div>
-        
-        
-        
 
         <h3 style={{ marginTop: 20 }}>⚠ Top Risks</h3>
         {topRisks().map((r) => (
@@ -646,30 +635,26 @@ export default function App() {
           </div>
         </div>
 
-        
         <div style={{ marginTop: 20 }}>
           <h3>Audit</h3>
           {audit.map((entry, i) => (
             <div key={i}>{entry}</div>
           ))}
         </div>
+      </div>
 
-        <style>{`
-          @keyframes flash {
-            0%{transform:scale(1);}
-            50%{transform:scale(1.05);}
-            100%{transform:scale(1);}
-          }
-          .flash{animation:flash 1.2s infinite;}
-          @media print {
-            .no-print { display: none !important; }
-            body { background: white !important; }
-          }
-        `}</style>
-
-      </div>   
-    </div>     
-
+      <style>{`
+        @keyframes flash {
+          0%{transform:scale(1);}
+          50%{transform:scale(1.05);}
+          100%{transform:scale(1);}
+        }
+        .flash{animation:flash 1.2s infinite;}
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; }
+        }
+      `}</style>
+    </div>
   );
 }
-``
