@@ -87,6 +87,14 @@ export default function App() {
     });
   };
 
+  const setAbsentLearnersForDay = (learners) => {
+    setAbsentLearners((prev) => ({ ...prev, [day]: learners }));
+  };
+
+  const setAbsentStaffForDay = (staffNames) => {
+    setAbsentStaff((prev) => ({ ...prev, [day]: staffNames }));
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem("nvl-week");
     if (!saved) return;
@@ -421,37 +429,75 @@ export default function App() {
         ))}
 
         <div style={absentSectionStyle}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch", minWidth: 240 }}>
             <h4>Learners Absent</h4>
-            {Array.from(new Set(classesData.filter((c) => c.day === day).flatMap((c) => c.learners || []))).map((l) => (
-              <label key={l} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={getAbsentLearnersForDay(day).includes(l)}
-                  onChange={() => toggleAbsentLearner(l)}
-                />
-                {l}
-              </label>
-            ))}
+            <select
+              multiple
+              size={Math.min(8, Math.max(4, Array.from(new Set(classesData.filter((c) => c.day === day).flatMap((c) => c.learners || []))).length))}
+              value={getAbsentLearnersForDay(day)}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                setAbsentLearnersForDay(selected);
+              }}
+              style={{ minWidth: 220, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+            >
+              {Array.from(new Set(classesData.filter((c) => c.day === day).flatMap((c) => c.learners || []))).map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <div style={{ minHeight: 32 }}>
+              {getAbsentLearnersForDay(day).length ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {getAbsentLearnersForDay(day).map((l) => (
+                    <span key={l} style={{ padding: "4px 8px", background: "#e5e7eb", borderRadius: 999 }}>
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: "#4b5563" }}>No absent learners selected</div>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "stretch", minWidth: 240 }}>
             <h4>Staff Absent</h4>
-            {staff.map((s) => (
-              <label key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={getAbsentStaffForDay(day).includes(s)}
-                  onChange={() => toggleAbsentStaff(s)}
-                />
-                {s}
-              </label>
-            ))}
+            <select
+              multiple
+              size={Math.min(8, Math.max(4, staff.length))}
+              value={getAbsentStaffForDay(day)}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions, (option) => option.value);
+                setAbsentStaffForDay(selected);
+              }}
+              style={{ minWidth: 220, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+            >
+              {staff.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <div style={{ minHeight: 32 }}>
+              {getAbsentStaffForDay(day).length ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {getAbsentStaffForDay(day).map((s) => (
+                    <span key={s} style={{ padding: "4px 8px", background: "#e5e7eb", borderRadius: 999 }}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: "#4b5563" }}>No absent staff selected</div>
+              )}
+            </div>
           </div>
         </div>
 
         <h3 style={{ marginTop: 20 }}>Staff</h3>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {staff
             .filter((s) => !getAbsentStaffForDay(day).includes(s))
             .map((s) => (
@@ -459,7 +505,7 @@ export default function App() {
                 key={s}
                 draggable
                 onDragStart={() => setDragged(s)}
-                style={{ padding: 10, background: "#ddd" }}
+                style={{ padding: 10, background: "#ddd", whiteSpace: "normal" }}
               >
                 {s}
               </div>
