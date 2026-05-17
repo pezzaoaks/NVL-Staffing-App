@@ -61,8 +61,10 @@ export default function App() {
   const getAbsentLearnersForDay = (d) => absentLearners[d] || [];
   const getAbsentStaffForDay = (d) => absentStaff[d] || [];
 
+  const getAssignedStaff = (key) => (Array.isArray(assignments[key]) ? assignments[key] : []);
+
   const getActiveAssignedStaff = (key, targetDay) => {
-    const assignedNames = Array.isArray(assignments[key]) ? assignments[key] : [];
+    const assignedNames = getAssignedStaff(key);
     const absent = getAbsentStaffForDay(targetDay ?? day);
     return assignedNames.filter((name) => !absent.includes(name));
   };
@@ -299,6 +301,20 @@ export default function App() {
     log(`${selectedStaff} → ${className}`);
   };
 
+  const unassign = (sessionName, className, staffName) => {
+    const key = `${day}-${sessionName}-${className}`;
+    setAssignments((prev) => {
+      const current = Array.isArray(prev[key]) ? prev[key] : [];
+      const next = current.filter((name) => name !== staffName);
+      if (next.length === 0) {
+        const { [key]: removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [key]: next };
+    });
+    log(`${staffName} removed from ${className}`);
+  };
+
   const drop = (sessionName, className) => {
     if (!dragged) return;
     assign(sessionName, className, dragged);
@@ -528,13 +544,14 @@ export default function App() {
                 .filter((c) => c.day === day && c.session === session)
                 .map((cls) => {
                   const key = `${day}-${session}-${cls.name}`;
-                  const assignedNames = getActiveAssignedStaff(key, cls.day);
-                  const assigned = assignedNames.length;
+                  const assignedStaff = getAssignedStaff(key);
+                  const activeAssigned = getActiveAssignedStaff(key, cls.day);
+                  const assigned = activeAssigned.length;
                   const adjusted =
                     cls.supportNeeded -
                     (cls.learners || []).filter((l) => getAbsentLearnersForDay(cls.day).includes(l)).length;
                   const status = getStatus(assigned, adjusted);
-                  return { ...cls, assigned, assignedStaff: assignedNames, adjusted, status };
+                  return { ...cls, assigned, assignedStaff, adjusted, status };
                 })
                 .sort((a, b) => score(b.status) - score(a.status))
                 .map((cls) => (
@@ -563,8 +580,36 @@ export default function App() {
                     </div>
                     <div style={{ marginTop: 8, fontSize: 12 }}>
                       Staff:
-                      <div style={{ marginTop: 4, padding: 8, background: "rgba(255,255,255,0.15)", borderRadius: 6 }}>
-                        {cls.assignedStaff?.length ? cls.assignedStaff.join(", ") : "None"}
+                      <div style={{ marginTop: 4, padding: 8, background: "rgba(255,255,255,0.15)", borderRadius: 6, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {cls.assignedStaff?.length
+                          ? cls.assignedStaff.map((name) => (
+                              <div
+                                key={name}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  padding: "4px 8px",
+                                  background: "rgba(0,0,0,0.08)",
+                                  borderRadius: 999,
+                                }}
+                              >
+                                <span>{name}</span>
+                                <button
+                                  onClick={() => unassign(session, cls.name, name)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "#111827",
+                                    cursor: "pointer",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))
+                          : "None"}
                       </div>
                     </div>
                     <button onClick={() => assign(session, cls.name)}>
