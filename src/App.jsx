@@ -28,13 +28,23 @@ const parseAssignedStaff = (value) => {
     .filter(Boolean);
 };
 
+const parseStaffSheet = (sheet) => {
+  if (!sheet) return [];
+  const rows = XLSX.utils.sheet_to_json(sheet);
+  return rows.flatMap((row) =>
+    parseAssignedStaff(
+      row.Name || row.Staff || row["Staff Name"] || row["Staff Member"] || row["Staff"]
+    )
+  );
+};
+
 export default function App() {
   const [day, setDay] = useState("Monday");
   const [classesData, setClassesData] = useState([]);
   const [assignments, setAssignments] = useState({});
   const [dragged, setDragged] = useState(null);
 
-  const [staff, setStaff] = useState(["Sarah", "Amir", "Leah"]);
+  const [staff, setStaff] = useState([]);
   const [absentLearners, setAbsentLearners] = useState({});
   const [absentStaff, setAbsentStaff] = useState({});
 
@@ -154,12 +164,15 @@ export default function App() {
     reader.onload = (event) => {
       try {
         let parsed = [];
+        let sheetStaff = [];
 
         if (isExcel) {
           const data = new Uint8Array(event.target.result);
           const wb = XLSX.read(data, { type: "array" });
           const sheet = wb.Sheets[wb.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json(sheet);
+          const staffSheetName = wb.SheetNames.find((name) => /^staff(?:s| list)?$/i.test(name));
+          sheetStaff = parseStaffSheet(staffSheetName ? wb.Sheets[staffSheetName] : null);
 
           parsed = json.map((row) => ({
             day: row.Day,
@@ -223,6 +236,7 @@ export default function App() {
           ...new Set([
             ...prevStaff,
             ...parsed.flatMap((cls) => cls.assignedStaff || []),
+            ...sheetStaff,
           ]),
         ]);
 
